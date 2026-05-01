@@ -22,8 +22,7 @@ Model memprediksi kelayakan pemohon kredit: **LAYAK (0)** atau **TIDAK LAYAK (1)
 
 ```
 .
-├── abel.ipynb                          # Notebook utama — 6 model, sklearn Pipeline
-├── credit_scoring_model_app.ipynb      # Notebook eksplorasi awal
+├── credit_scoring_model.ipynb          # Notebook utama — 6 model, sklearn Pipeline
 ├── best_model_abel.pkl                 # Model terbaik tersimpan (LightGBM)
 ├── hasil_prediksi_abel.csv             # Hasil prediksi 48.744 nasabah test
 ├── rangkuman_perbandingan_model.md     # Perbandingan lengkap semua model
@@ -47,7 +46,7 @@ Download manual melalui link berikut lalu letakkan sesuai struktur folder di ata
 
 ---
 
-## Notebook Utama — abel.ipynb
+## Notebook Utama — credit_scoring_model.ipynb
 
 ### Fitur yang Digunakan (26 fitur)
 
@@ -104,6 +103,36 @@ Hasil lengkap tersimpan di `hasil_prediksi_abel.csv`.
 
 ---
 
+## Field Input Aplikasi
+
+User mengisi **19 field** di form, sisanya dihitung otomatis oleh sistem.
+
+| # | Field | Tipe | Contoh |
+|---|---|---|---|
+| 1 | CODE_GENDER | Pilihan | M / F |
+| 2 | NAME_INCOME_TYPE | Pilihan | Working / Pensioner / Commercial associate |
+| 3 | NAME_EDUCATION_TYPE | Pilihan | Higher education / Secondary education |
+| 4 | NAME_FAMILY_STATUS | Pilihan | Married / Single / Civil marriage |
+| 5 | OCCUPATION_TYPE | Pilihan | Laborers / Managers / Sales staff |
+| 6 | FLAG_OWN_CAR | Pilihan | Y / N |
+| 7 | FLAG_OWN_REALTY | Pilihan | Y / N |
+| 8 | CNT_CHILDREN | Angka | 0, 1, 2 |
+| 9 | CNT_FAM_MEMBERS | Angka | 1, 2, 3 |
+| 10 | AMT_INCOME_TOTAL | Angka | 270000 |
+| 11 | AMT_CREDIT | Angka | 1000000 |
+| 12 | AMT_ANNUITY | Angka | 25000 |
+| 13 | AMT_GOODS_PRICE | Angka | 900000 |
+| 14 | DAYS_EMPLOYED | Angka | -1000 (negatif = sudah bekerja) |
+| 15 | DAYS_LAST_PHONE_CHANGE | Angka | -300 |
+| 16 | DAYS_BIRTH | Angka | -12000 (negatif = hari lahir) |
+| 17 | EXT_SOURCE_1 | Desimal | 0.50 (range 0–1) |
+| 18 | EXT_SOURCE_2 | Desimal | 0.60 (range 0–1) |
+| 19 | EXT_SOURCE_3 | Desimal | 0.40 (range 0–1) |
+
+> Field yang dihitung otomatis (tidak perlu diisi user): `AGE_YEARS`, `DAYS_EMPLOYED_ANOM`, `EXT_SOURCE_MEAN`, `EXT_SOURCE_MIN`, `EXT_SOURCE_PROD`, `DEBT_TO_INCOME`, `PAYMENT_RATE`
+
+---
+
 ## Cara Pakai Model
 
 ```python
@@ -112,12 +141,12 @@ import pandas as pd
 import numpy as np
 
 # Load model
-obj = joblib.load('best_model_abel.pkl')
-model      = obj['model']
-threshold  = obj['threshold']
-feat_cols  = obj['feature_cols']
+obj       = joblib.load('best_model_abel.pkl')
+model     = obj['model']
+threshold = obj['threshold']
+feat_cols = obj['feature_cols']
 
-# Feature engineering (wajib sama persis saat training)
+# Hitung fitur otomatis dari input user
 def feature_engineering(df):
     df = df.copy()
     df['DAYS_EMPLOYED_ANOM'] = (df['DAYS_EMPLOYED'] == 365243).astype(int)
@@ -125,17 +154,25 @@ def feature_engineering(df):
     df['AGE_YEARS']          = abs(df['DAYS_BIRTH']) / 365
     df['DEBT_TO_INCOME']     = df['AMT_CREDIT']  / (df['AMT_INCOME_TOTAL'] + 1)
     df['PAYMENT_RATE']       = df['AMT_ANNUITY'] / (df['AMT_CREDIT'] + 1)
-    ext = ['EXT_SOURCE_1','EXT_SOURCE_2','EXT_SOURCE_3']
+    ext = ['EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3']
     df['EXT_SOURCE_MEAN'] = df[ext].mean(axis=1)
     df['EXT_SOURCE_MIN']  = df[ext].min(axis=1)
     df['EXT_SOURCE_PROD'] = df[ext].prod(axis=1)
     return df
 
-# Prediksi
-df  = feature_engineering(df_input)
-X   = df[feat_cols]
-prob = model.predict_proba(X)[:, 1]
-pred = (prob >= threshold).astype(int)  # 0=LAYAK, 1=TIDAK LAYAK
+# Prediksi dari input user (19 field)
+df_input = pd.DataFrame([{
+    'CODE_GENDER': 'M', 'NAME_INCOME_TYPE': 'Working', 'AMT_CREDIT': 1000000,
+    # ... isi 19 field lainnya
+}])
+
+df_fe  = feature_engineering(df_input)
+X      = df_fe[feat_cols]
+prob   = model.predict_proba(X)[:, 1][0]
+pred   = 'TIDAK LAYAK' if prob >= threshold else 'LAYAK'
+
+print(f"Probabilitas gagal bayar : {prob:.2%}")
+print(f"Keputusan                : {pred}")
 ```
 
 ---
