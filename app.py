@@ -102,15 +102,15 @@ st.markdown("""
 # ── Load model ────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
-    return joblib.load("best_model_abel.pkl")
+    return joblib.load("best_model.pkl")
 
 try:
     obj       = load_model()
     model     = obj["model"]
     threshold = obj["threshold"]
-    feat_cols = obj["feature_cols"]
+    feat_cols = obj["features"]
 except:
-    st.error("Model tidak ditemukan. Pastikan best_model_abel.pkl ada di folder yang sama.")
+    st.error("Model tidak ditemukan. Pastikan best_model.pkl ada di folder yang sama.")
     st.stop()
 
 # ── Feature engineering ───────────────────────────────────────────────────────
